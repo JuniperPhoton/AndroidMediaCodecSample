@@ -24,8 +24,6 @@ class MainActivity : AppCompatActivity(), Runnable {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        audioEncoderCore = AudioEncoderCore(this)
-
         button = findViewById(R.id.btn)
         statusText = findViewById(R.id.statusText)
 
@@ -33,6 +31,7 @@ class MainActivity : AppCompatActivity(), Runnable {
             when (audioEncoderCore.recordStatus) {
                 AudioEncoderCore.RECORD_STATUS_INITED -> {
                     runOnPermissionsGranted {
+                        audioEncoderCore = AudioEncoderCore(this)
                         backgroundThread = Thread(this).apply {
                             start()
                         }
