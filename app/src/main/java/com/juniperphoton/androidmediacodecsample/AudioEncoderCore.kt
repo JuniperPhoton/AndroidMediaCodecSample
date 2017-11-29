@@ -148,6 +148,8 @@ class AudioEncoderCore(private val context: Context) {
 
         toast("start!")
 
+        Log.i(TAG, "start!")
+
         while (!audioEncoderDone && !requestStop) {
             // Extract audio from file and feed to decoder.
             // Do not extract audio if we have determined the output format but we are not yet
@@ -165,7 +167,6 @@ class AudioEncoderCore(private val context: Context) {
                 val size = audioExtractor.readSampleData(decoderInputBuffer, 0)
                 val presentationTime = audioExtractor.sampleTime
                 Log.d(TAG, "audio extractor: returned buffer of size" + size)
-                Log.d(TAG, "audio extractor: returned buffer for time" + presentationTime)
                 if (size >= 0) {
                     audioDecoder.queueInputBuffer(
                             decoderInputBufferIndex,
@@ -217,7 +218,6 @@ class AudioEncoderCore(private val context: Context) {
                     audioDecoder.releaseOutputBuffer(decoderOutputBufferIndex, false)
                     break
                 }
-                Log.d(TAG, "audio decoder: returned buffer for time" + audioDecoderOutputBufferInfo.presentationTimeUs)
                 pendingAudioDecoderOutputBufferIndex = decoderOutputBufferIndex
                 Log.d(TAG, "audio decoder: output buffer is now pending:" + pendingAudioDecoderOutputBufferIndex)
                 audioDecodedFrameCount++
@@ -227,8 +227,7 @@ class AudioEncoderCore(private val context: Context) {
 
             // Feed the pending decoded audio buffer to the audio encoder.
             while (pendingAudioDecoderOutputBufferIndex != -1) {
-                Log.i(TAG, "[2] Feed the pending decoded audio buffer to the audio encoder.")
-                Log.d(TAG, "audio decoder: attempting to process pending buffer:" + pendingAudioDecoderOutputBufferIndex)
+                Log.i(TAG, "[2] Feed the pending decoded audio buffer to the audio encoder: $pendingAudioDecoderOutputBufferIndex")
                 val encoderInputBufferIndex = audioEncoder.dequeueInputBuffer(TIMEOUT_USEC)
                 if (encoderInputBufferIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
                     Log.d(TAG, "no audio encoder input buffer")
@@ -238,11 +237,9 @@ class AudioEncoderCore(private val context: Context) {
                 val encoderInputBuffer = audioEncoderInputBuffers[encoderInputBufferIndex]
                 val size = audioDecoderOutputBufferInfo.size
                 val presentationTime = audioDecoderOutputBufferInfo.presentationTimeUs
-                Log.d(TAG, "audio decoder: processing pending buffer:" + pendingAudioDecoderOutputBufferIndex)
-                Log.d(TAG, "audio decoder: pending buffer of size " + size)
-                Log.d(TAG, "audio decoder: pending buffer for time " + presentationTime)
+                Log.d(TAG, "audio decoder: processing pending buffer: $pendingAudioDecoderOutputBufferIndex, size is $size")
                 if (size >= 0) {
-                    Log.d(TAG, "audio encoder: queueInputBuffer, size: " + size)
+                    Log.d(TAG, "audio encoder: queueInputBuffer, size: $size")
                     val decoderOutputBuffer = audioDecoderOutputBuffers[pendingAudioDecoderOutputBufferIndex]
                             .duplicate()
                     decoderOutputBuffer.position(audioDecoderOutputBufferInfo.offset)
@@ -289,9 +286,8 @@ class AudioEncoderCore(private val context: Context) {
                     encoderOutputAudioFormat = audioEncoder.outputFormat
                     break
                 }
-                Log.d(TAG, "audio encoder: returned output buffer:" + encoderOutputBufferIndex)
-                Log.d(TAG, "audio encoder: returned buffer of size" + audioEncoderOutputBufferInfo.size)
-
+                Log.d(TAG, "audio encoder: returned output buffer: $encoderOutputBufferIndex," +
+                        " size is ${audioDecoderOutputBufferInfo.size}")
                 if (!muxing) {
                     throw RuntimeException("should have muxing")
                 }
@@ -302,7 +298,6 @@ class AudioEncoderCore(private val context: Context) {
                     audioEncoder.releaseOutputBuffer(encoderOutputBufferIndex, false)
                     break
                 }
-                Log.d(TAG, "audio encoder: returned buffer for time" + audioEncoderOutputBufferInfo.presentationTimeUs)
                 if (audioEncoderOutputBufferInfo.size != 0) {
                     audioEncodedFrameCount++
                 }
@@ -330,7 +325,7 @@ class AudioEncoderCore(private val context: Context) {
             }
         }
 
-        Log.i(TAG, "ext count $audioExtractedFrameCount")
+        Log.i(TAG, "extract count $audioExtractedFrameCount")
         Log.i(TAG, "decode count $audioDecodedFrameCount")
         Log.i(TAG, "encode count $audioEncodedFrameCount")
     }
