@@ -256,9 +256,9 @@ class AudioEncodeCase(context: Context) : EncodeCase(context) {
                         .duplicate()
                 decoderOutputBuffer.position(audioDecoderOutputBufferInfo.offset)
                 decoderOutputBuffer.limit(audioDecoderOutputBufferInfo.offset + size)
-                //val result = handleBuffer(decoderOutputBuffer, decoderOutputBufferInfo)
+                val result = effect!!.processFrame(decoderOutputBuffer, audioDecoderOutputBufferInfo)
                 encoderInputBuffer.position(0)
-                encoderInputBuffer.put(decoderOutputBuffer)
+                encoderInputBuffer.put(result)
                 encoder.queueInputBuffer(
                         encoderInputBufferIndex,
                         0,
