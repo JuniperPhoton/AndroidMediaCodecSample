@@ -109,9 +109,23 @@ class AudioEncodeCase(private val context: Context) : EncodeCase(context) {
     private var audioEos = false
     private var pendingAudioDecoderOutputBufferIndex = -1
 
+    private lateinit var audioDecoderInputBuffers: Array<ByteBuffer>
+    private lateinit var audioDecoderOutputBuffers: Array<ByteBuffer>
+    private lateinit var audioEncoderInputBuffers: Array<ByteBuffer>
+    private lateinit var audioEncoderOutputBuffers: Array<ByteBuffer>
+
+    private var audioDecoderOutputBufferInfo = MediaCodec.BufferInfo()
+    private var audioEncoderOutputBufferInfo = MediaCodec.BufferInfo()
+
     private fun generate() {
         toast("start!")
         Log.i(TAG, "start!")
+
+        audioDecoderInputBuffers = audioDecoder.inputBuffers
+        audioDecoderOutputBuffers = audioDecoder.outputBuffers
+        audioEncoderInputBuffers = audioEncoder.inputBuffers
+        audioEncoderOutputBuffers = audioEncoder.outputBuffers
+
         while (!audioEos && !requestStop) {
             decode(audioExtractor, audioDecoder)
             encode(audioDecoder, audioEncoder)
@@ -126,8 +140,8 @@ class AudioEncodeCase(private val context: Context) : EncodeCase(context) {
         // Extract audio from file and feed to decoder.
         // Do not extract audio if we have determined the output format but we are not yet
         // ready to mux the frames.
-        var audioDecoderInputBuffers = decoder.inputBuffers
-        while (!audioEos && (encoderOutputAudioFormat == null || mediaMuxerWrapper.muxerStarted)) {
+        while (!audioEos
+                && (encoderOutputAudioFormat == null || mediaMuxerWrapper.muxerStarted)) {
             Log.i(TAG, "[0] Extract audio from file and feed to decoder")
             val decoderInputBufferIndex = decoder.dequeueInputBuffer(TIMEOUT_USEC)
             if (decoderInputBufferIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
@@ -165,14 +179,11 @@ class AudioEncodeCase(private val context: Context) : EncodeCase(context) {
     private fun encode(decoder: MediaCodec, encoder: MediaCodec) {
         // Poll output frames from the audio decoder.
         // Do not poll if we already have a pending buffer to feed to the encoder.
-        var bufferInfo = MediaCodec.BufferInfo()
-        var audioDecoderOutputBuffers = decoder.outputBuffers
-
         while (!audioEos && pendingAudioDecoderOutputBufferIndex == -1
                 && (encoderOutputAudioFormat == null || mediaMuxerWrapper.muxerStarted)) {
             Log.i(TAG, "[1] Poll output frames from the audio decoder")
             val decoderOutputBufferIndex = decoder.dequeueOutputBuffer(
-                    bufferInfo, TIMEOUT_USEC)
+                    audioDecoderOutputBufferInfo, TIMEOUT_USEC)
             if (decoderOutputBufferIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
                 Log.d(TAG, "no audio decoder output buffer")
                 break
@@ -187,8 +198,8 @@ class AudioEncodeCase(private val context: Context) : EncodeCase(context) {
                 break
             }
             Log.d(TAG, "audio decoder: returned output buffer:" + decoderOutputBufferIndex)
-            Log.d(TAG, "audio decoder: returned buffer of size" + bufferInfo.size)
-            if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0) {
+            Log.d(TAG, "audio decoder: returned buffer of size" + audioDecoderOutputBufferInfo.size)
+            if (audioDecoderOutputBufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0) {
                 Log.d(TAG, "audio decoder: codec config buffer")
                 decoder.releaseOutputBuffer(decoderOutputBufferIndex, false)
                 break
@@ -198,8 +209,6 @@ class AudioEncodeCase(private val context: Context) : EncodeCase(context) {
             // We extracted a pending frame, let's try something else next.
             break
         }
-
-        var audioEncoderInputBuffers = encoder.inputBuffers
 
         // Feed the pending decoded audio buffer to the audio encoder.
         while (!audioEos && pendingAudioDecoderOutputBufferIndex != -1) {
@@ -212,28 +221,28 @@ class AudioEncodeCase(private val context: Context) : EncodeCase(context) {
             }
             Log.d(TAG, "audio encoder: returned input buffer:" + encoderInputBufferIndex)
             val encoderInputBuffer = audioEncoderInputBuffers[encoderInputBufferIndex]
-            val size = bufferInfo.size
-            val presentationTime = bufferInfo.presentationTimeUs
+            val size = audioDecoderOutputBufferInfo.size
+            val presentationTime = audioDecoderOutputBufferInfo.presentationTimeUs
             Log.d(TAG, "audio decoder: processing pending buffer: $pendingAudioDecoderOutputBufferIndex, size is $size")
             if (size >= 0) {
                 Log.d(TAG, "audio encoder: queueInputBuffer, size: $size")
                 val decoderOutputBuffer = audioDecoderOutputBuffers[pendingAudioDecoderOutputBufferIndex]
                         .duplicate()
-                decoderOutputBuffer.position(bufferInfo.offset)
-                decoderOutputBuffer.limit(bufferInfo.offset + size)
-                val result = handleBuffer(decoderOutputBuffer, bufferInfo)
+                decoderOutputBuffer.position(audioDecoderOutputBufferInfo.offset)
+                decoderOutputBuffer.limit(audioDecoderOutputBufferInfo.offset + size)
+                //val result = handleBuffer(decoderOutputBuffer, decoderOutputBufferInfo)
                 encoderInputBuffer.position(0)
-                encoderInputBuffer.put(result)
+                encoderInputBuffer.put(decoderOutputBuffer)
                 encoder.queueInputBuffer(
                         encoderInputBufferIndex,
                         0,
                         size,
                         presentationTime,
-                        bufferInfo.flags)
+                        audioDecoderOutputBufferInfo.flags)
             }
             decoder.releaseOutputBuffer(pendingAudioDecoderOutputBufferIndex, false)
             pendingAudioDecoderOutputBufferIndex = -1
-            if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
+            if (audioDecoderOutputBufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
                 Log.d(TAG, "audio decoder: EOS")
                 audioEos = true
             }
@@ -252,10 +261,8 @@ class AudioEncodeCase(private val context: Context) : EncodeCase(context) {
 
     private fun drainToMuxer(encoder: MediaCodec) {
         // Poll frames from the audio encoder and send them to the muxer.
-        var audioEncoderOutputBufferInfo = MediaCodec.BufferInfo()
-        var audioEncoderOutputBuffers = encoder.outputBuffers
-
-        while (!audioEos && (encoderOutputAudioFormat == null || mediaMuxerWrapper.muxerStarted)) {
+        while (!audioEos
+                && (encoderOutputAudioFormat == null || mediaMuxerWrapper.muxerStarted)) {
             Log.i(TAG, "[3] Poll frames from the audio encoder and send them to the muxer")
             val encoderOutputBufferIndex = encoder.dequeueOutputBuffer(
                     audioEncoderOutputBufferInfo, TIMEOUT_USEC)
@@ -271,7 +278,7 @@ class AudioEncodeCase(private val context: Context) : EncodeCase(context) {
             if (encoderOutputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                 Log.d(TAG, "audio encoder: output format changed")
                 encoderOutputAudioFormat = encoder.outputFormat
-                mediaMuxerWrapper.setAudioTrack(encoderOutputAudioFormat!!)
+                mediaMuxerWrapper.setAudioTrack(encoderOutputAudioFormat)
                 break
             }
             Log.d(TAG, "audio encoder: returned output buffer: $encoderOutputBufferIndex," +

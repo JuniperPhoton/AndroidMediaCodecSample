@@ -42,13 +42,15 @@ class MediaMuxerWrapper(private val outputType: Int,
     var muxerStarted = false
         private set
 
-    fun setVideoTrack(format: MediaFormat) {
+    fun setVideoTrack(format: MediaFormat?) {
+        format ?: return
         videoTrack = muxer.addTrack(format)
         Log.d(TAG, "video track added: $videoTrack")
         tryStart()
     }
 
-    fun setAudioTrack(format: MediaFormat) {
+    fun setAudioTrack(format: MediaFormat?) {
+        format ?: return
         audioTrack = muxer.addTrack(format)
         Log.d(TAG, "audio track added: $audioTrack")
         tryStart()
