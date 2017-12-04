@@ -3,19 +3,16 @@ package com.juniperphoton.androidmediacodecsample.core
 import android.content.Context
 import android.media.*
 import android.net.Uri
-import android.os.Environment
 import android.util.Log
-import java.io.File
 import java.io.IOException
 import java.nio.ByteBuffer
 
 @Suppress("deprecation")
-class AudioEncodeCase(private val context: Context) : EncodeCase(context) {
+class AudioEncodeCase(context: Context) : EncodeCase(context) {
     companion object {
-        private const val INPUT_AUDIO_FILE_PATH = "/sdcard/audio_only.mp3"
         private const val TAG = "AudioEncodeCase"
 
-        private const val AUDIO_MIME_TYPE = "audio/mp4a-latm"
+        private const val AUDIO_MIME_TYPE = MediaFormat.MIMETYPE_AUDIO_AAC
 
         private const val TIMEOUT_USEC = 1L
 
@@ -33,33 +30,61 @@ class AudioEncodeCase(private val context: Context) : EncodeCase(context) {
         }
     }
 
+    private var inputFilePath: String? = null
+    private var outputFilePath: String? = null
+    private var effect: ISingleAudioEffect? = null
+
     private var audioExtractor: MediaExtractor = MediaExtractor()
     private lateinit var audioDecoder: MediaCodec
     private lateinit var audioEncoder: MediaCodec
 
     private lateinit var mediaMuxerWrapper: MediaMuxerWrapper
 
-    init {
+    class Builder(private val context: Context, b: (Builder.() -> Unit)) {
+        var inputFilePath: String? = null
+        var outputFilePath: String? = null
+        var effect: ISingleAudioEffect? = null
+
+        init {
+            b.invoke(this)
+        }
+
+        fun build(): AudioEncodeCase {
+            val o = outputFilePath ?: throw IllegalArgumentException("output file should not be null")
+            val i = inputFilePath ?: throw IllegalArgumentException("input file should not be null")
+
+            val e = effect ?: object : ISingleAudioEffect {
+                override fun processFrame(src: ByteBuffer, bi: MediaCodec.BufferInfo): ByteArray {
+                    val result = ByteArray(bi.size)
+                    for (i in bi.offset until bi.offset + bi.size) {
+                        result[i - bi.offset] = src.get(i)
+                    }
+                    return result
+                }
+            }
+
+            return AudioEncodeCase(context).apply {
+                this.inputFilePath = i
+                this.outputFilePath = o
+                this.effect = e
+            }
+        }
+    }
+
+    override fun start() {
+        super.start()
+
         try {
-            val name = "${System.currentTimeMillis()}.mp3"
-            val path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
-            val file = File(path, name)
-            mediaMuxerWrapper = MediaMuxerWrapper(MediaMuxerWrapper.OUTPUT_TYPE_AUDIO_ONLY, file.path)
+            mediaMuxerWrapper = MediaMuxerWrapper(MediaMuxerWrapper.OUTPUT_TYPE_AUDIO_ONLY, outputFilePath!!)
         } catch (e: Exception) {
             e.printStackTrace()
             toast(e.message ?: "")
         }
-    }
 
-    override fun stop() {
-        requestStop = true
-    }
-
-    override fun start() {
         var format: MediaFormat? = null
         var mimeType = ""
 
-        audioExtractor.setDataSource(context, Uri.parse(INPUT_AUDIO_FILE_PATH), null)
+        audioExtractor.setDataSource(context, Uri.parse(inputFilePath), null)
 
         val trackCount = audioExtractor.trackCount
 

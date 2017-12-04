@@ -16,7 +16,7 @@ class MediaMuxerWrapper(private val outputType: Int,
         private const val TAG = "MediaMuxerWrapper"
     }
 
-    val allTracksAdded: Boolean
+    private val allTracksAdded: Boolean
         get() {
             return when (outputType) {
                 OUTPUT_TYPE_MIXED -> {
