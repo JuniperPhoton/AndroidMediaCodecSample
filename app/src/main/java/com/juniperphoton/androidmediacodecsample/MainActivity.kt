@@ -14,7 +14,7 @@ class MainActivity : AppCompatActivity(), Runnable {
                 Manifest.permission.READ_EXTERNAL_STORAGE)
     }
 
-    private lateinit var audioEncoderCore: AudioEncoderCore
+    private var audioEncoderCore: AudioEncoderCore = AudioEncoderCore(this)
     private var backgroundThread: Thread? = null
 
     private lateinit var button: Button
