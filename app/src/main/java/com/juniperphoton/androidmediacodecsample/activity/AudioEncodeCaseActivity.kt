@@ -25,7 +25,6 @@ class AudioEncodeCaseActivity : AppCompatActivity(), Runnable {
         button.setOnClickListener {
             when (case.recordStatus) {
                 EncodeCase.RECORD_STATUS_INITIALIZED -> {
-                    case = AudioEncodeCase(this)
                     backgroundThread = Thread(this).apply {
                         start()
                     }

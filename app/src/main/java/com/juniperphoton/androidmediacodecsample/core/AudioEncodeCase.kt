@@ -114,6 +114,7 @@ class AudioEncodeCase(private val context: Context) : EncodeCase(context) {
     private lateinit var audioEncoderInputBuffers: Array<ByteBuffer>
     private lateinit var audioEncoderOutputBuffers: Array<ByteBuffer>
 
+    // Important to re-use the buffer info.
     private var audioDecoderOutputBufferInfo = MediaCodec.BufferInfo()
     private var audioEncoderOutputBufferInfo = MediaCodec.BufferInfo()
 
