@@ -12,7 +12,7 @@ import com.juniperphoton.androidmediacodecsample.core.EncodeCase
 import com.juniperphoton.androidmediacodecsample.core.VolumeAudioEffect
 import java.io.File
 
-class AudioEncodeCaseActivity : AppCompatActivity(), Runnable {
+class AudioCodecCaseActivity : AppCompatActivity(), Runnable {
     private lateinit var button: Button
     private lateinit var statusText: TextView
     private lateinit var seekBar: SeekBar

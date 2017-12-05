@@ -8,19 +8,29 @@ import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
 import android.support.v7.app.AppCompatActivity
 import android.util.Log
-import android.view.View
+import android.view.ViewGroup
+import android.widget.Button
 import com.juniperphoton.androidmediacodecsample.R
 
 class MainActivity : AppCompatActivity() {
     companion object {
         private var permissions = arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE,
                 Manifest.permission.READ_EXTERNAL_STORAGE)
+
+        private var caseActivities = arrayOf(AudioCodecCaseActivity::class.java,
+                MediaExtractCaseActivity::class.java)
+
         private const val TAG = "MainActivity"
     }
+
+    private lateinit var caseList: ViewGroup
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        caseList = findViewById(R.id.caseList)
+        setupButtons()
         ActivityCompat.requestPermissions(this, permissions, 0)
     }
 
@@ -29,8 +39,15 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "allPermissionsGranted: ${allPermissionsGranted()}")
     }
 
-    fun audioCase(v: View) {
-        startActivity(AudioEncodeCaseActivity::class.java)
+    private fun setupButtons() {
+        caseActivities.forEach { a ->
+            val button = Button(this, null)
+            button.text = a.simpleName.toLowerCase()
+            button.setOnClickListener {
+                startActivity(a)
+            }
+            caseList.addView(button)
+        }
     }
 
     private fun <T> startActivity(clazz: Class<T>) {
